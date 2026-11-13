@@ -1,151 +1,179 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+from datetime import datetime
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+st.set_page_config(page_title="Painel Q-Stop Tablet - MAHLE", page_icon="🛑", layout="wide")
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# ==============================================================================
+# 🎨 VISUAL CORPORATIVO: FUNDO AZUL ESCURO MAHLE + BOTÃO VERMELHO + LOGO
+# ==============================================================================
+st.markdown("""
+    <style>
+    /* Fundo azul escuro da tela inteira */
+    .stApp {
+        background-color: #0A1D37;
+        color: #FFFFFF;
+    }
+    
+    /* Deixa todos os textos, títulos e rótulos em branco */
+    h1, h2, h3, h4, p, label, .stMarkdown {
+        color: #FFFFFF !important;
+    }
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+    /* Botão principal (Primeiro botão) em VERMELHO FORTE com fonte BRANCA */
+    .stButton > button[kind="primary"] {
+        background-color: #D90429 !important;
+        color: #FFFFFF !important;
+        border: 2px solid #FF4D6D !important;
+        font-weight: bold !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background-color: #A4001D !important;
+        border-color: #FFFFFF !important;
+    }
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+    /* Melhora o contraste dos botões secundários no fundo escuro */
+    .stButton > button[kind="secondary"] {
+        background-color: #16325C;
+        color: #FFFFFF;
+        border: 1px solid #3B6998;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background-color: #21467D;
+        border-color: #FFFFFF;
+    }
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    /* Estilo do campo de texto do operador */
+    .stTextInput > div > div > input {
+        background-color: #16325C;
+        color: #FFFFFF;
+        border: 1px solid #3B6998;
+    }
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+    /* Posiciona a logo da MAHLE no canto superior direito */
+    .logo-mahle {
+        position: fixed;
+        top: 55px;
+        right: 35px;
+        z-index: 9999;
+        background-color: #FFFFFF;
+        padding: 8px 14px;
+        border-radius: 6px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4);
+    }
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+    /* Cartão VERDE (Linha Liberada) */
+    .card-verde {
+        background-color: #1B7F3A;
+        color: #FFFFFF !important;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 8px solid #2ECC71;
+        font-size: 18px;
+        font-weight: bold;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+        margin-bottom: 15px;
+    }
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    /* Cartão VERMELHO (Linha Bloqueada / Alerta) */
+    .card-vermelho {
+        background-color: #D90429;
+        color: #FFFFFF !important;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 8px solid #FF8FA3;
+        font-size: 18px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.4);
+        margin-bottom: 15px;
+    }
+    </style>
 
-    return gdp_df
+    <div class="logo-mahle">
+        <img src="https://wikimedia.org" width="140">
+    </div>
+""", unsafe_allow_html=True)
+# ==============================================================================
 
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
+MOTIVOS_DE_PARADA = [
+    "🛑 PARADA POR QUALIDADE (Q-Stop)",
+    "🔧 FALHA MECÂNICA / MANUTENÇÃO",
+    "⚡ FALHA ELÉTRICA / AUTOMAÇÃO",
+    "📦 FALTA DE MATÉRIA-PRIMA / INSUMO",
+    "⚙️ AJUSTE DE MÁQUINA / SETUP",
+    "🦺 SEGURANÇA / ERGONOMIA",
+    "🔩 FALHA NA INSERÇÃO DO TUBO",
 ]
 
-st.header('GDP over time', divider='gray')
+if "status_linha" not in st.session_state:
+    st.session_state.status_linha = "🟢 OPERANDO NORMALMENTE"
+if "historico_paradas" not in st.session_state:
+    st.session_state.historico_paradas = []
 
-''
+st.title("🖥️ Terminal de Produção - Sistema Q-Stop")
+st.markdown(f"### Status Atual da Linha: **{st.session_state.status_linha}**")
+st.markdown("---")
 
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
+col_acoes, col_status = st.columns(2)
 
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
+with col_acoes:
+    st.subheader("🚨 ACIONAMENTO RÁPIDO (Toque no Motivo)")
+    operador = st.text_input("Identificação do Operador (Nome ou ID):", key="op_id")
+    
+    st.markdown("---")
+    st.write("Selecione o motivo para **PARAR A LINHA** imediatamente:")
+    
+    motivo_selecionado = None
+    for i, motivo in enumerate(MOTIVOS_DE_PARADA):
+        tipo_botao = "primary" if i == 0 else "secondary"
+        if st.button(motivo, key=f"btn_{i}", use_container_width=True, type=tipo_botao):
+            motivo_selecionado = motivo
+    
+    if motivo_selecionado:
+        if not operador:
+            st.error("⚠️ Erro: Insira sua identificação antes de acionar o Q-Stop!")
         else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+            st.session_state.status_linha = f"🔴 PARADA: {motivo_selecionado.upper()}"
+            nova_parada = {
+                "ID": len(st.session_state.historico_paradas) + 1,
+                "Operador": operador,
+                "Motivo": motivo_selecionado,
+                "Hora Início": datetime.now().strftime("%H:%M:%S"),
+                "Hora Fim": "Em andamento",
+                "Status": "Aberto"
+            }
+            st.session_state.historico_paradas.append(nova_parada)
+            st.toast("Alerta enviado para a gestão!", icon="🚨")
+            st.rerun()
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+with col_status:
+    st.subheader("📊 Situação do Turno")
+    
+    if len(st.session_state.historico_paradas) == 0:
+        st.markdown('<div class="card-verde">✅ Linha liberada e operando sem pendências neste turno.</div>', unsafe_allow_html=True)
+    else:
+        df = pd.DataFrame(st.session_state.historico_paradas)
+        paradas_abertas = df[df["Status"] == "Aberto"]
+        
+        if not paradas_abertas.empty:
+            atual = paradas_abertas.iloc[-1]
+            st.markdown(f"""
+                <div class="card-vermelho">
+                    <div style="font-size: 22px; font-weight: bold; margin-bottom: 8px;">⚠️ LINHA BLOQUEADA</div>
+                    <div><strong>Motivo:</strong> {atual['Motivo']}</div>
+                    <div><strong>Início:</strong> {atual['Hora Início']} por <strong>{atual['Operador']}</strong></div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            if st.button("✅ RESOLVIDO - RETOMAR PRODUÇÃO", use_container_width=True, type="secondary"):
+                idx_atual = df[df["Status"] == "Aberto"].index[-1]
+                st.session_state.historico_paradas[idx_atual]["Status"] = "Resolvido"
+                st.session_state.historico_paradas[idx_atual]["Hora Fim"] = datetime.now().strftime("%H:%M:%S")
+                st.session_state.status_linha = "🟢 OPERANDO NORMALMENTE"
+                st.rerun()
+        else:
+            st.markdown('<div class="card-verde">✅ Linha liberada e operando sem pendências.</div>', unsafe_allow_html=True)
+            
+        st.markdown("---")
+        st.write("**Últimas ocorrências do tablet:**")
+        st.dataframe(df[["Motivo", "Hora Início", "Hora Fim", "Status"]].tail(5), use_container_width=True, hide_index=True)
